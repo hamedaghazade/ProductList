@@ -1,19 +1,20 @@
-import app from './app.js';
-import { env } from './config/env.js';
-import { prisma } from './db/prisma.js';
+import app from './app';
+import { env } from './config/env';
+import { createBot } from './bot';
 
-const server = app.listen(env.PORT, () => {
-  console.log(`🚀 سرور با موفقیت روی پورت ${env.PORT} در حالت [${env.NODE_ENV}] اجرا شد.`);
-});
+const startServer = async () => {
+  const bot = createBot();
+  if (bot) {
+    bot.launch().then(() => {
+      console.log('🤖 Telegram Bot launched successfully');
+    }).catch((err) => {
+      console.error('Failed to launch Telegram Bot:', err.message);
+    });
+  }
 
-const gracefulShutdown = async (signal: string) => {
-  console.log(`\nدریافت سیگنال ${signal}. در حال توقف سرور...`);
-  server.close(async () => {
-    await prisma.$disconnect();
-    console.log('ارتباط با دیتابیس قطع شد. خروج کامل.');
-    process.exit(0);
+  app.listen(env.PORT, () => {
+    console.log(`🚀 Server running in ${env.NODE_ENV} mode on port ${env.PORT}`);
   });
 };
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+startServer();

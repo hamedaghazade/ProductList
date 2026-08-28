@@ -1,20 +1,15 @@
 import { Router } from 'express';
-import { productController } from '../controllers/product.controller.js';
-import { validate } from '../middlewares/validate.middleware.js';
-import {
-  createProductSchema,
-  updateProductSchema,
-  getProductByIdSchema,
-  queryProductSchema,
-} from '../validations/product.schema.js';
+import { ProductController } from '../controllers/product.controller';
+import { authMiddleware } from '../middlewares/auth.middleware';
 
 const router = Router();
+const controller = new ProductController();
 
-router.get('/stats', productController.getStats);
-router.get('/', validate(queryProductSchema), productController.getAll);
-router.get('/:id', validate(getProductByIdSchema), productController.getById);
-router.post('/', validate(createProductSchema), productController.create);
-router.put('/:id', validate(updateProductSchema), productController.update);
-router.delete('/:id', validate(getProductByIdSchema), productController.delete);
+router.use(authMiddleware as any);
 
-export const productRoutes = router;
+router.get('/', controller.getAll as any);
+router.post('/', controller.create as any);
+router.put('/:id', controller.update as any);
+router.delete('/:id', controller.delete as any);
+
+export default router;

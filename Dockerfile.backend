@@ -1,0 +1,32 @@
+FROM node:20-alpine AS base
+
+# نصب وابستگی‌های لازم برای اجرای Chromium در Alpine جهت تولید PDF
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY packages/shared/package*.json ./packages/shared/
+COPY apps/backend/package*.json ./apps/backend/
+
+RUN npm ci
+
+COPY packages/shared ./packages/shared
+COPY apps/backend ./apps/backend
+
+RUN npm --prefix packages/shared run build
+RUN npm --prefix apps/backend run prisma:generate
+RUN npm --prefix apps/backend run build
+
+EXPOSE 3000
+
+CMD ["npm", "--prefix", "apps/backend", "run", "start:prod"]

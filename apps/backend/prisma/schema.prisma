@@ -13,15 +13,18 @@ enum BarcodeType {
 }
 
 model Product {
-  id                  String      @id @default(uuid())
-  name                String      @db.VarChar(255)
-  quantityPerPackage  Int         @map("quantity_per_package")
-  price               Decimal     @db.Decimal(12, 2)
-  barcode             String      @unique @db.VarChar(100)
-  barcodeType         BarcodeType @default(CODE128) @map("barcode_type")
-  createdAt           DateTime    @default(now()) @map("created_at")
-  updatedAt           DateTime    @updatedAt @map("updated_at")
+  id                 String      @id @default(uuid())
+  name               String      @db.VarChar(150)
+  quantityPerPackage Int         @map("quantity_per_package")
+  price              Decimal     @db.Decimal(14, 2)
+  barcode            String      @db.VarChar(64)
+  barcodeType        BarcodeType @default(EAN13) @map("barcode_type")
+  telegramUserId     String      @map("telegram_user_id") @db.VarChar(64)
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
 
+  @@unique([telegramUserId, barcode], name: "unique_user_barcode")
+  @@index([telegramUserId])
   @@index([name])
   @@index([barcode])
   @@map("products")

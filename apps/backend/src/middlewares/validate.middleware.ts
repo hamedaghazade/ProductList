@@ -1,34 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
 import { AnyZodObject, ZodError } from 'zod';
 
-export const validate =
-  (schema: AnyZodObject) =>
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const validateRequest = (schema: AnyZodObject) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const parsed = await schema.parseAsync({
-        body: req.body,
-        query: req.query,
-        params: req.params,
-      });
-
-      if (parsed.body) req.body = parsed.body;
-      if (parsed.query) req.query = parsed.query;
-      if (parsed.params) req.params = parsed.params;
-
+      await schema.parseAsync(req.body);
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        const firstError = error.errors[0]?.message || 'اطلاعات ورودی نامعتبر است';
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
-          message: firstError,
           errors: error.errors.map((err) => ({
-            field: err.path.slice(1).join('.'),
+            field: err.path.join('.'),
             message: err.message,
           })),
         });
-        return;
       }
-      next(error);
+      return res.status(500).json({ success: false, message: 'خطای اعتبارسنجی سرور' });
     }
   };
+};

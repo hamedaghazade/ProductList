@@ -1,164 +1,127 @@
-import { Prisma } from '@prisma/client';
-import { prisma } from '../db/prisma.js';
-import { AppError, ConflictError, NotFoundError } from '../errors/app-error.js';
+import { PrismaClient } from '@prisma/client';
+import { CreateProductDTO, UpdateProductDTO, ProductQueryParams, PaginatedResult, IProduct } from '@shared/types/product';
 
-export interface CreateProductDTO {
-  name: string;
-  quantityPerPackage: number;
-  price: number;
-  barcode: string;
-  barcodeType: 'EAN13' | 'CODE128';
-}
-
-export interface UpdateProductDTO {
-  name?: string;
-  quantityPerPackage?: number;
-  price?: number;
-  barcode?: string;
-  barcodeType?: 'EAN13' | 'CODE128';
-}
-
-export interface ProductQueryFilter {
-  page: number;
-  limit: number;
-  search?: string;
-  sortBy: 'createdAt' | 'name' | 'price' | 'quantityPerPackage';
-  sortOrder: 'asc' | 'desc';
-}
+const prisma = new PrismaClient();
 
 export class ProductService {
-  async createProduct(data: CreateProductDTO) {
-    const existing = await prisma.product.findUnique({
-      where: { barcode: data.barcode },
-    });
-
-    if (existing) {
-      throw new ConflictError(`محصولی با بارکد «${data.barcode}» قبلاً ثبت شده است`);
-    }
-
-    return prisma.product.create({
-      data: {
-        name: data.name,
-        quantityPerPackage: data.quantityPerPackage,
-        price: new Prisma.Decimal(data.price),
-        barcode: data.barcode,
-        barcodeType: data.barcodeType,
-      },
-    });
-  }
-
-  async getAllProducts(filters: ProductQueryFilter) {
-    const { page, limit, search, sortBy, sortOrder } = filters;
+  public async findAll(telegramUserId: string, query: ProductQueryParams): Promise<PaginatedResult<IProduct>> {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(100, Math.max(1, query.limit || 50));
     const skip = (page - 1) * limit;
 
-    const where: Prisma.ProductWhereInput = search
-      ? {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { barcode: { contains: search, mode: 'insensitive' } },
-          ],
-        }
-      : {};
+    const whereClause: any = { telegramUserId };
 
-    const [total, items] = await prisma.$transaction([
-      prisma.product.count({ where }),
+    if (query.search) {
+      whereClause.OR = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { barcode: { contains: query.search } },
+      ];
+    }
+
+    const orderBy: any = {};
+    if (query.sortBy) {
+      orderBy[query.sortBy] = query.sortOrder === 'desc' ? 'desc' : 'asc';
+    } else {
+      orderBy.createdAt = 'desc';
+    }
+
+    const [total, records] = await Promise.all([
+      prisma.product.count({ where: whereClause }),
       prisma.product.findMany({
-        where,
+        where: whereClause,
         skip,
         take: limit,
-        orderBy: { [sortBy]: sortOrder },
+        orderBy,
       }),
     ]);
+
+    const items: IProduct[] = records.map((r) => ({
+      ...r,
+      price: Number(r.price),
+      barcodeType: r.barcodeType as any,
+    }));
 
     return {
       items,
-      pagination: {
-        page,
-        limit,
-        totalItems: total,
-        totalPages: Math.ceil(total / limit),
-      },
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
     };
   }
 
-  async getProductById(id: string) {
-    const product = await prisma.product.findUnique({
-      where: { id },
+  public async getSummary(telegramUserId: string) {
+    const totalProducts = await prisma.product.count({ where: { telegramUserId } });
+    const aggregate = await prisma.product.aggregate({
+      where: { telegramUserId },
+      _sum: { quantityPerPackage: true },
     });
-
-    if (!product) {
-      throw new NotFoundError('محصول مورد نظر یافت نشد');
-    }
-
-    return product;
-  }
-
-  async getProductByBarcode(barcode: string) {
-    const product = await prisma.product.findUnique({
-      where: { barcode },
-    });
-
-    if (!product) {
-      throw new NotFoundError(`محصولی با بارکد «${barcode}» یافت نشد`);
-    }
-
-    return product;
-  }
-
-  async updateProduct(id: string, data: UpdateProductDTO) {
-    const product = await prisma.product.findUnique({ where: { id } });
-
-    if (!product) {
-      throw new NotFoundError('محصول جهت ویرایش یافت نشد');
-    }
-
-    if (data.barcode && data.barcode !== product.barcode) {
-      const barcodeExists = await prisma.product.findUnique({
-        where: { barcode: data.barcode },
-      });
-      if (barcodeExists) {
-        throw new ConflictError('بارکد جدید وارد شده متعلق به محصول دیگری است');
-      }
-    }
-
-    return prisma.product.update({
-      where: { id },
-      data: {
-        ...(data.name && { name: data.name }),
-        ...(data.quantityPerPackage !== undefined && { quantityPerPackage: data.quantityPerPackage }),
-        ...(data.price !== undefined && { price: new Prisma.Decimal(data.price) }),
-        ...(data.barcode && { barcode: data.barcode }),
-        ...(data.barcodeType && { barcodeType: data.barcodeType }),
-      },
-    });
-  }
-
-  async deleteProduct(id: string) {
-    const product = await prisma.product.findUnique({ where: { id } });
-
-    if (!product) {
-      throw new NotFoundError('محصول جهت حذف یافت نشد');
-    }
-
-    await prisma.product.delete({ where: { id } });
-
-    return { id, message: 'محصول با موفقیت حذف شد' };
-  }
-
-  async getDashboardStats() {
-    const [totalProducts, latestProducts] = await prisma.$transaction([
-      prisma.product.count(),
-      prisma.product.findMany({
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-      }),
-    ]);
 
     return {
       totalProducts,
-      latestProducts,
+      totalItemsCount: aggregate._sum.quantityPerPackage || 0,
     };
   }
-}
 
-export const productService = new ProductService();
+  public async findByIds(telegramUserId: string, ids?: string[]): Promise<IProduct[]> {
+    const where: any = { telegramUserId };
+    if (ids && ids.length > 0) {
+      where.id = { in: ids };
+    }
+
+    const records = await prisma.product.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return records.map((r) => ({
+      ...r,
+      price: Number(r.price),
+      barcodeType: r.barcodeType as any,
+    }));
+  }
+
+  public async create(telegramUserId: string, data: CreateProductDTO): Promise<IProduct> {
+    const created = await prisma.product.create({
+      data: {
+        name: data.name,
+        quantityPerPackage: data.quantityPerPackage,
+        price: data.price,
+        barcode: data.barcode,
+        barcodeType: data.barcodeType as any,
+        telegramUserId,
+      },
+    });
+
+    return {
+      ...created,
+      price: Number(created.price),
+      barcodeType: created.barcodeType as any,
+    };
+  }
+
+  public async update(telegramUserId: string, id: string, data: UpdateProductDTO): Promise<IProduct> {
+    const updated = await prisma.product.update({
+      where: { id, telegramUserId },
+      data: {
+        ...(data.name && { name: data.name }),
+        ...(data.quantityPerPackage !== undefined && { quantityPerPackage: data.quantityPerPackage }),
+        ...(data.price !== undefined && { price: data.price }),
+        ...(data.barcode && { barcode: data.barcode }),
+        ...(data.barcodeType && { barcodeType: data.barcodeType as any }),
+      },
+    });
+
+    return {
+      ...updated,
+      price: Number(updated.price),
+      barcodeType: updated.barcodeType as any,
+    };
+  }
+
+  public async delete(telegramUserId: string, id: string): Promise<void> {
+    await prisma.product.delete({
+      where: { id, telegramUserId },
+    });
+  }
+}

@@ -1,91 +1,70 @@
-import { Request, Response, NextFunction } from 'express';
-import { productService } from '../services/product.service.js';
+import { Response } from 'express';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
+import { ProductService } from '../services/product.service';
+import { productSchema } from '@shared/validators/product.schema';
 
 export class ProductController {
-  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const product = await productService.createProduct(req.body);
-      res.status(201).json({
-        success: true,
-        message: 'محصول با موفقیت ثبت شد',
-        data: product,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  private productService = new ProductService();
 
-  async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public getAll = async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const filters = {
-        page: req.query.page ? Number(req.query.page) : 1,
-        limit: req.query.limit ? Number(req.query.limit) : 10,
-        search: req.query.search as string | undefined,
-        sortBy: (req.query.sortBy as any) || 'createdAt',
-        sortOrder: (req.query.sortOrder as any) || 'desc',
-      };
+      const telegramUserId = req.telegramUserId!;
+      const { search, sortBy, sortOrder, page, limit } = req.query;
 
-      const result = await productService.getAllProducts(filters);
-      res.status(200).json({
-        success: true,
-        data: result.items,
-        pagination: result.pagination,
+      const result = await this.productService.findAll(telegramUserId, {
+        search: search as string,
+        sortBy: sortBy as any,
+        sortOrder: sortOrder as any,
+        page: page ? parseInt(page as string, 10) : 1,
+        limit: limit ? parseInt(limit as string, 10) : 50,
       });
-    } catch (error) {
-      next(error);
-    }
-  }
 
-  async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
+      return res.json({ success: true, data: result });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  };
+
+  public create = async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const product = await productService.getProductById(req.params.id);
-      res.status(200).json({
-        success: true,
-        data: product,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+      const telegramUserId = req.telegramUserId!;
+      const validatedData = productSchema.parse(req.body);
 
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const updatedProduct = await productService.updateProduct(req.params.id, req.body);
-      res.status(200).json({
-        success: true,
-        message: 'محصول با موفقیت به‌روزرسانی شد',
-        data: updatedProduct,
-      });
-    } catch (error) {
-      next(error);
+      const createdProduct = await this.productService.create(telegramUserId, validatedData);
+      return res.status(201).json({ success: true, data: createdProduct });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        return res.status(409).json({
+          success: false,
+          message: 'محصولی با این شماره بارکد قبلاً در سیستم شما ثبت شده است.',
+        });
+      }
+      return res.status(400).json({ success: false, message: error.errors?.[0]?.message || error.message });
     }
-  }
+  };
 
-  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public update = async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const result = await productService.deleteProduct(req.params.id);
-      res.status(200).json({
-        success: true,
-        message: result.message,
-        data: { id: result.id },
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+      const telegramUserId = req.telegramUserId!;
+      const { id } = req.params;
+      const validatedData = productSchema.partial().parse(req.body);
 
-  async getStats(_req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const stats = await productService.getDashboardStats();
-      res.status(200).json({
-        success: true,
-        data: stats,
-      });
-    } catch (error) {
-      next(error);
+      const updated = await this.productService.update(telegramUserId, id, validatedData);
+      return res.json({ success: true, data: updated });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.errors?.[0]?.message || error.message });
     }
-  }
+  };
+
+  public delete = async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const telegramUserId = req.telegramUserId!;
+      const { id } = req.params;
+
+      await this.productService.delete(telegramUserId, id);
+      return res.json({ success: true, message: 'محصول با موفقیت حذف شد.' });
+    } catch (error: any) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+  };
 }
-
-export const productController = new ProductController();
-export default productController;

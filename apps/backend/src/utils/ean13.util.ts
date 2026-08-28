@@ -1,0 +1,1 @@
+export { ean13CheckDigit, isValidEAN13 } from '@shared/validators/product.schema';

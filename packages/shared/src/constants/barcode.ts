@@ -1,0 +1,6 @@
+export const BARCODE_STANDARDS = {
+  EAN13_LENGTH: 13,
+  EAN13_PREFIX_IRAN: '626',
+  DEFAULT_SCALE: 3,
+  DEFAULT_HEIGHT: 10,
+} as const;

@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: productlist_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_secret_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-productlist}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - productlist_net
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: productlist_backend
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_secret_2026}@postgres:5432/${POSTGRES_DB:-productlist}?schema=public
+      BOT_TOKEN: ${BOT_TOKEN}
+      TELEGRAM_WEBAPP_URL: ${TELEGRAM_WEBAPP_URL}
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
+      PUPPETEER_EXECUTABLE_PATH: "/usr/bin/chromium-browser"
+    ports:
+      - "3000:3000"
+    networks:
+      - productlist_net
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: productlist_web
+    restart: always
+    ports:
+      - "80:80"
+    networks:
+      - productlist_net
+
+volumes:
+  pgdata:
+
+networks:
+  productlist_net:
+    driver: bridge

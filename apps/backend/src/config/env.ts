@@ -1,22 +1,12 @@
 import dotenv from 'dotenv';
-import { z } from 'zod';
-
+dotenv.config({ path: '../../.env' });
 dotenv.config();
 
-const envSchema = z.object({
-  PORT: z.string().default('5000').transform((val) => parseInt(val, 10)),
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  DATABASE_URL: z.string().min(1, 'DATABASE_URL الزامی است'),
-  CORS_ORIGIN: z.string().default('*'),
-});
-
-const parseEnv = () => {
-  const result = envSchema.safeParse(process.env);
-  if (!result.success) {
-    console.error('خطای پیکربندی متغیرهای محیطی:', result.error.format());
-    process.exit(1);
-  }
-  return result.data;
+export const env = {
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  PORT: parseInt(process.env.PORT || '3000', 10),
+  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres_secret_2026@localhost:5432/productlist?schema=public',
+  BOT_TOKEN: process.env.BOT_TOKEN || '',
+  TELEGRAM_WEBAPP_URL: process.env.TELEGRAM_WEBAPP_URL || 'http://localhost:5173',
+  PUPPETEER_EXECUTABLE_PATH: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
 };
-
-export const env = parseEnv();
