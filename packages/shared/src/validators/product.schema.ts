@@ -29,17 +29,17 @@ export const productSchema = z.object({
     .max(150, 'نام محصول نمی‌تواند بیش از ۱۵۰ کاراکتر باشد.'),
   quantityPerPackage: z
     .number({ required_error: 'تعداد در بسته الزامی است.' })
-    .int('تعداد در بسته باید عدد صحیح باشد.')
+    .int('تعداد در بسته باید یک عدد صحیح باشد.')
     .positive('تعداد در بسته باید بزرگتر از صفر باشد.'),
   price: z
     .number({ required_error: 'قیمت الزامی است.' })
-    .nonnegative('قیمت نمی‌تواند منفی باشد.'),
+    .nonnegative('قیمت نمی‌تواند عدد منفی باشد.'),
   barcode: z
-    .string({ required_error: 'بارکد عددی الزامی است.' })
+    .string({ required_error: 'کد بارکد الزامی است.' })
     .trim()
     .min(1, 'بارکد نمی‌تواند خالی باشد.'),
   barcodeType: z.nativeEnum(BarcodeType, {
-    errorMap: () => ({ message: 'نوع بارکد نامعتبر است.' }),
+    errorMap: () => ({ message: 'نوع بارکد باید EAN13 یا CODE128 باشد.' }),
   }),
 }).superRefine((data, ctx) => {
   if (data.barcodeType === BarcodeType.EAN13) {
@@ -47,13 +47,21 @@ export const productSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['barcode'],
-        message: 'بارکد EAN-13 باید دقیقاً ۱۳ رقم باشد.',
+        message: 'بارکد استاندارد EAN-13 باید دقیقاً ۱۳ رقم عددی باشد.',
       });
     } else if (!isValidEAN13(data.barcode)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['barcode'],
-        message: 'رقم کنترلی (Check Digit) بارکد نامعتبر است.',
+        message: 'رقم کنترلی (Check Digit) بارکد EAN-13 نامعتبر است.',
+      });
+    }
+  } else if (data.barcodeType === BarcodeType.CODE128) {
+    if (!/^[\x20-\x7E]+$/.test(data.barcode)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['barcode'],
+        message: 'بارکد Code 128 شامل کاراکترهای نامعتبر اسکی است.',
       });
     }
   }

@@ -18,47 +18,47 @@ export const addProductWizard = new Scenes.WizardScene<Scenes.WizardContext<AddP
   'ADD_PRODUCT_SCENE',
   async (ctx) => {
     ctx.scene.session.productData = {};
-    await ctx.reply('🔹 مرحله ۱ از ۴:\nلطفاً **نام محصول** را وارد کنید:', Markup.removeKeyboard());
+    await ctx.reply('🔹 مرحله ۱ از ۴:\nلطفاً **نام کالا** را وارد کنید:', Markup.removeKeyboard());
     return ctx.wizard.next();
   },
   async (ctx) => {
     if (!ctx.message || !('text' in ctx.message)) {
-      await ctx.reply('⚠️ لطفاً نام محصول را به صورت متنی ارسال کنید:');
+      await ctx.reply('⚠️ لطفاً نام محصول را به صورت متنی وارد کنید:');
       return;
     }
     const name = ctx.message.text.trim();
     if (name.length < 2) {
-      await ctx.reply('⚠️ نام محصول باید حداقل ۲ حرف باشد. مجدداً ارسال کنید:');
+      await ctx.reply('⚠️ نام کالا باید حداقل ۲ حرف باشد. مجدداً ارسال کنید:');
       return;
     }
 
     ctx.scene.session.productData.name = name;
-    await ctx.reply('🔹 مرحله ۲ از ۴:\n**تعداد در بسته‌بندی** را به صورت عددی وارد کنید:');
+    await ctx.reply('🔹 مرحله ۲ از ۴:\n**تعداد در هر بسته** را به عدد وارد کنید:');
     return ctx.wizard.next();
   },
   async (ctx) => {
     if (!ctx.message || !('text' in ctx.message)) {
-      await ctx.reply('⚠️ لطفاً تعداد را به صورت عدد وارد کنید:');
+      await ctx.reply('⚠️ لطفاً یک مقدار عددی ارسال فرمایید:');
       return;
     }
     const qty = parseInt(ctx.message.text.trim(), 10);
     if (isNaN(qty) || qty <= 0) {
-      await ctx.reply('⚠️ تعداد نامعتبر است. یک عدد صحیح مثبت ارسال کنید:');
+      await ctx.reply('⚠️ تعداد باید یک عدد صحیح بزرگتر از صفر باشد:');
       return;
     }
 
     ctx.scene.session.productData.quantityPerPackage = qty;
-    await ctx.reply('🔹 مرحله ۳ از ۴:\n**قیمت محصول (ریال)** را وارد کنید:');
+    await ctx.reply('🔹 مرحله ۳ از ۴:\n**قیمت واحد محصول (ریال)** را وارد کنید:');
     return ctx.wizard.next();
   },
   async (ctx) => {
     if (!ctx.message || !('text' in ctx.message)) {
-      await ctx.reply('⚠️ لطفاً قیمت را به عدد وارد کنید:');
+      await ctx.reply('⚠️ قیمت باید عددی باشد:');
       return;
     }
     const price = parseFloat(ctx.message.text.trim());
     if (isNaN(price) || price < 0) {
-      await ctx.reply('⚠️ قیمت نامعتبر است. یک عدد مثبت یا صفر ارسال کنید:');
+      await ctx.reply('⚠️ قیمت نمی‌تواند منفی باشد. مجدداً وارد فرمایید:');
       return;
     }
 
@@ -70,7 +70,7 @@ export const addProductWizard = new Scenes.WizardScene<Scenes.WizardContext<AddP
   },
   async (ctx) => {
     if (!ctx.message || !('text' in ctx.message)) {
-      await ctx.reply('⚠️ لطفاً کد بارکد را ارسال کنید:');
+      await ctx.reply('⚠️ بارکد معتبر ارسال فرمایید:');
       return;
     }
     const barcode = ctx.message.text.trim();
@@ -78,7 +78,7 @@ export const addProductWizard = new Scenes.WizardScene<Scenes.WizardContext<AddP
 
     if (/^\d{13}$/.test(barcode)) {
       if (!isValidEAN13(barcode)) {
-        await ctx.reply('⚠️ کد ۱۳ رقمی واردشده با الگوریتم کنترلی EAN-13 همخوانی ندارد. مجدداً بررسی و ارسال فرمایید:');
+        await ctx.reply('⚠️ رقم کنترلی بارکد EAN-13 نامعتبر است. مجدداً بررسی و ارسال فرمایید:');
         return;
       }
       barcodeType = BarcodeType.EAN13;
@@ -89,12 +89,12 @@ export const addProductWizard = new Scenes.WizardScene<Scenes.WizardContext<AddP
     productData.barcodeType = barcodeType;
 
     const summary =
-      `📋 **پیش‌نمایش اطلاعات محصول:**\n\n` +
+      `📋 **پیش‌نمایش اطلاعات ثبت‌شده کالا:**\n\n` +
       `🏷 **نام:** ${productData.name}\n` +
       `📦 **تعداد در بسته:** ${productData.quantityPerPackage}\n` +
       `💰 **قیمت:** ${productData.price?.toLocaleString('fa-IR')} ریال\n` +
       `🔢 **بارکد:** \`${productData.barcode}\` (${barcodeType})\n\n` +
-      `آیا اطلاعات مورد تأیید است؟`;
+      `آیا اطلاعات مورد تایید شماست؟`;
 
     const pngBuffer = await BarcodeService.generatePngBuffer(barcode, barcodeType);
 
@@ -105,7 +105,7 @@ export const addProductWizard = new Scenes.WizardScene<Scenes.WizardContext<AddP
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
           [Markup.button.callback('✅ تأیید و ثبت نهایی', 'CONFIRM_SAVE_PRODUCT')],
-          [Markup.button.callback('❌ لغو', 'CANCEL_SAVE_PRODUCT')],
+          [Markup.button.callback('❌ انصراف', 'CANCEL_SAVE_PRODUCT')],
         ]),
       }
     );
@@ -121,14 +121,14 @@ export const addProductWizard = new Scenes.WizardScene<Scenes.WizardContext<AddP
         const productService = new ProductService();
         try {
           await productService.create(telegramUserId, ctx.scene.session.productData as any);
-          await ctx.answerCbQuery('محصول با موفقیت ثبت شد.');
-          await ctx.reply('🎉 محصول با موفقیت در سیستم ذخیره گردید.');
+          await ctx.answerCbQuery('کالا ثبت گردید.');
+          await ctx.reply('🎉 محصول با موفقیت در پایگاه داده ذخیره شد.');
         } catch (err: any) {
-          await ctx.reply(`⚠️ خطا در ثبت: ${err.message}`);
+          await ctx.reply(`⚠️ خطا در ثبت کالا: ${err.message}`);
         }
       } else {
         await ctx.answerCbQuery('عملیات لغو شد.');
-        await ctx.reply('❌ ثبت محصول لغو گردید.');
+        await ctx.reply('❌ عملیات ثبت کالا لغو گردید.');
       }
       return ctx.scene.leave();
     }

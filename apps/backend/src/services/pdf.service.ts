@@ -1,158 +1,141 @@
-import puppeteer from 'puppeteer';
-import { IProduct } from '@shared/types/product';
+import PDFDocument from 'pdfkit';
 import { BarcodeService } from './barcode.service';
+import { ExportProductItem } from './excel.service';
 
-export class PdfExportService {
-  public static async generateTablePdf(products: IProduct[]): Promise<Buffer> {
-    const productsWithImages = await Promise.all(
-      products.map(async (p, idx) => ({
-        ...p,
-        rowNumber: idx + 1,
-        formattedPrice: Number(p.price).toLocaleString('fa-IR'),
-        barcodeDataUrl: await BarcodeService.generateBase64DataUrl(p.barcode, p.barcodeType),
-      }))
-    );
+export class PdfService {
+  /**
+   * ساخت PDF کاتالوگ و جدول رسمی محصولات
+   */
+  public static async generateCatalogPdf(products: ExportProductItem[]): Promise<Buffer> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const doc = new PDFDocument({
+          size: 'A4',
+          margin: 30,
+          info: { Title: 'گزارش محصولات', Author: 'ProductList Bot' },
+        });
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html lang="fa" dir="rtl">
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
-          * { box-sizing: border-box; font-family: 'Vazirmatn', Tahoma, sans-serif; }
-          body { margin: 0; padding: 20px; font-size: 11pt; color: #1e293b; }
-          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #0284c7; padding-bottom: 10px; }
-          .header h1 { margin: 0; font-size: 18pt; color: #0f172a; }
-          .header p { margin: 5px 0 0; color: #64748b; font-size: 9pt; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th { background-color: #f1f5f9; color: #334155; padding: 8px 6px; font-weight: 700; border: 1px solid #cbd5e1; font-size: 9pt; }
-          td { padding: 6px; border: 1px solid #e2e8f0; text-align: center; vertical-align: middle; font-size: 9pt; }
-          tr:nth-child(even) { background-color: #fafafa; }
-          .barcode-img { max-width: 130px; height: 42px; object-fit: contain; }
-          .barcode-num { font-family: 'Courier New', Courier, monospace; letter-spacing: 1px; font-weight: bold; }
-          .footer { position: fixed; bottom: 10px; left: 20px; right: 20px; display: flex; justify-content: space-between; font-size: 8pt; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 5px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>گزارش جامع فهرست محصولات و بارکد</h1>
-          <p>تاریخ تولید گزارش: ${new Date().toLocaleDateString('fa-IR')} | تعداد اقلام: ${products.length}</p>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 6%;">ردیف</th>
-              <th style="width: 32%;">نام محصول</th>
-              <th style="width: 12%;">تعداد در بسته</th>
-              <th style="width: 18%;">قیمت (ریال)</th>
-              <th style="width: 16%;">کد بارکد</th>
-              <th style="width: 16%;">تصویر بارکد</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${productsWithImages
-              .map(
-                (p) => `
-              <tr>
-                <td>${p.rowNumber}</td>
-                <td style="text-align: right; padding-right: 8px; font-weight: 500;">${p.name}</td>
-                <td>${p.quantityPerPackage}</td>
-                <td>${p.formattedPrice}</td>
-                <td class="barcode-num" dir="ltr">${p.barcode}</td>
-                <td><img class="barcode-img" src="${p.barcodeDataUrl}" /></td>
-              </tr>
-            `
-              )
-              .join('')}
-          </tbody>
-        </table>
-      </body>
-      </html>
-    `;
+        const buffers: Buffer[] = [];
+        doc.on('data', (chunk) => buffers.push(chunk));
+        doc.on('end', () => resolve(Buffer.concat(buffers)));
 
-    return this.renderHtmlToPdf(htmlContent, 'A4', false);
-  }
+        // هدر صفحه
+        doc.fontSize(16).text('فهرست و بارکد محصولات', { align: 'center' });
+        doc.moveDown(0.5);
+        doc.fontSize(9).text(`تاریخ صدور: ${new Date().toLocaleDateString('fa-IR')}`, { align: 'left' });
+        doc.moveDown(1);
 
-  public static async generateLabelsPdf(products: IProduct[]): Promise<Buffer> {
-    const productsWithImages = await Promise.all(
-      products.map(async (p) => ({
-        ...p,
-        formattedPrice: Number(p.price).toLocaleString('fa-IR'),
-        barcodeDataUrl: await BarcodeService.generateBase64DataUrl(p.barcode, p.barcodeType),
-      }))
-    );
+        let y = 100;
+        const rowHeight = 65;
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html lang="fa" dir="rtl">
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
-          * { box-sizing: border-box; font-family: 'Vazirmatn', Tahoma, sans-serif; }
-          body { margin: 0; padding: 12mm 8mm; background: #fff; }
-          .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6mm; }
-          .label-card {
-            border: 1px dashed #94a3b8;
-            border-radius: 4px;
-            padding: 8px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: space-between;
-            height: 48mm;
-            page-break-inside: avoid;
+        // سرستون‌های جدول
+        doc.rect(30, y, 535, 25).fill('#1E293B');
+        doc.fillColor('#FFFFFF').fontSize(10);
+        doc.text('تصویر بارکد', 40, y + 7, { width: 120, align: 'center' });
+        doc.text('کد محصول', 170, y + 7, { width: 90, align: 'center' });
+        doc.text('قیمت (تومان)', 270, y + 7, { width: 90, align: 'center' });
+        doc.text('تعداد', 370, y + 7, { width: 40, align: 'center' });
+        doc.text('نام کالا', 420, y + 7, { width: 140, align: 'right' });
+
+        y += 25;
+        doc.fillColor('#000000');
+
+        for (let i = 0; i < products.length; i++) {
+          const item = products[i];
+
+          // کنترل صفحه جدید در صورت پر شدن برگه
+          if (y + rowHeight > 780) {
+            doc.addPage();
+            y = 40;
           }
-          .product-title { font-size: 9pt; font-weight: bold; text-align: center; max-height: 2.4em; overflow: hidden; }
-          .meta-row { display: flex; justify-content: space-between; width: 100%; font-size: 7.5pt; color: #475569; }
-          .barcode-box { text-align: center; width: 100%; }
-          .barcode-box img { width: 90%; height: 25mm; object-fit: contain; }
-        </style>
-      </head>
-      <body>
-        <div class="grid">
-          ${productsWithImages
-            .map(
-              (p) => `
-            <div class="label-card">
-              <div class="product-title">${p.name}</div>
-              <div class="meta-row">
-                <span>بسته: <b>${p.quantityPerPackage} عددی</b></span>
-                <span>قیمت: <b>${p.formattedPrice} ریال</b></span>
-              </div>
-              <div class="barcode-box">
-                <img src="${p.barcodeDataUrl}" />
-              </div>
-            </div>
-          `
-            )
-            .join('')}
-        </div>
-      </body>
-      </html>
-    `;
 
-    return this.renderHtmlToPdf(htmlContent, 'A4', false);
+          // خط جداکننده سطر
+          doc.rect(30, y, 535, rowHeight).stroke('#E2E8F0');
+
+          // نام کالا
+          doc.fontSize(10).text(item.name, 420, y + 20, { width: 135, align: 'right' });
+          // تعداد
+          doc.fontSize(10).text(String(item.quantityPerPackage), 370, y + 22, { width: 40, align: 'center' });
+          // قیمت
+          doc.fontSize(9).text(Number(item.price).toLocaleString('fa-IR'), 270, y + 22, { width: 90, align: 'center' });
+          // بارکد متنی
+          doc.fontSize(9).text(item.barcode, 170, y + 22, { width: 90, align: 'center' });
+
+          // درج تصویر بارکد
+          try {
+            const bcBuffer = await BarcodeService.generatePngBuffer(item.barcode, item.barcodeType || 'ean13');
+            doc.image(bcBuffer, 45, y + 8, { width: 110, height: 48 });
+          } catch {
+            doc.fontSize(8).fillColor('#EF4444').text('خطای بارکد', 50, y + 25);
+            doc.fillColor('#000000');
+          }
+
+          y += rowHeight;
+        }
+
+        doc.end();
+      } catch (error) {
+        reject(error);
+      }
+    });
   }
 
-  private static async renderHtmlToPdf(html: string, format: 'A4' = 'A4', landscape = false): Promise<Buffer> {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+  /**
+   * تولید شیت لیبل برچسب استاندارد A4 (شبکه ۳ ستون در ۸ ردیف = ۲۴ برچسب)
+   */
+  public static async generateLabelSheetPdf(products: ExportProductItem[]): Promise<Buffer> {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const doc = new PDFDocument({ size: 'A4', margin: 20 });
+        const buffers: Buffer[] = [];
+        doc.on('data', (chunk) => buffers.push(chunk));
+        doc.on('end', () => resolve(Buffer.concat(buffers)));
+
+        const cols = 3;
+        const colWidth = 180;
+        const rowHeight = 95;
+        const startX = 25;
+        const startY = 25;
+
+        let col = 0;
+        let row = 0;
+
+        for (const item of products) {
+          if (row >= 8) {
+            doc.addPage();
+            col = 0;
+            row = 0;
+          }
+
+          const x = startX + col * (colWidth + 10);
+          const y = startY + row * (rowHeight + 5);
+
+          // کادر پیرامون هر لیبل
+          doc.roundedRect(x, y, colWidth, rowHeight, 4).lineWidth(0.5).stroke('#CBD5E1');
+
+          // عنوان و مشخصات محصول روی لیبل
+          doc.fontSize(9).fillColor('#0F172A').text(item.name, x + 5, y + 6, { width: colWidth - 10, align: 'center', height: 12 });
+          doc.fontSize(8).fillColor('#475569').text(`قیمت: ${Number(item.price).toLocaleString('fa-IR')} تومان`, x + 5, y + 20, { width: colWidth - 10, align: 'center' });
+
+          // تولید بارکد لیبل
+          try {
+            const bcBuffer = await BarcodeService.generatePngBuffer(item.barcode, item.barcodeType || 'ean13');
+            doc.image(bcBuffer, x + 15, y + 34, { width: colWidth - 30, height: 48 });
+          } catch {
+            doc.fontSize(8).fillColor('#EF4444').text('خطای بارکد', x + 5, y + 45, { align: 'center' });
+          }
+
+          col++;
+          if (col >= cols) {
+            col = 0;
+            row++;
+          }
+        }
+
+        doc.end();
+      } catch (err) {
+        reject(err);
+      }
     });
-
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-
-    const pdfUint8Array = await page.pdf({
-      format,
-      landscape,
-      printBackground: true,
-      margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' },
-    });
-
-    await browser.close();
-    return Buffer.from(pdfUint8Array);
   }
 }

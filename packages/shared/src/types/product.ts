@@ -33,8 +33,3 @@ export interface PaginatedResult<T> {
   limit: number;
   totalPages: number;
 }
-
-export interface ProductsSummary {
-  totalProducts: number;
-  totalItemsCount: number;
-}

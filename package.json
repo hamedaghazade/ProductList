@@ -15,6 +15,13 @@
     "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/telegram-web-app": "^9.6.0",
+    "jest": "^30.5.0",
+    "ts-jest": "^29.4.12",
     "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "express-rate-limit": "^8.7.0"
   }
 }

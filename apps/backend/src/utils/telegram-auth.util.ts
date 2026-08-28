@@ -5,7 +5,6 @@ export interface TelegramUser {
   first_name: string;
   last_name?: string;
   username?: string;
-  language_code?: string;
 }
 
 export function verifyTelegramInitData(initData: string, botToken: string): { valid: boolean; user?: TelegramUser } {
@@ -26,9 +25,7 @@ export function verifyTelegramInitData(initData: string, botToken: string): { va
   const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
   const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
-  if (calculatedHash !== hash) {
-    return { valid: false };
-  }
+  if (calculatedHash !== hash) return { valid: false };
 
   const userJson = urlParams.get('user');
   if (!userJson) return { valid: false };
