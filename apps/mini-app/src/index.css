@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--tg-theme-bg-color, #f9fafb);
+  color: var(--tg-theme-text-color, #111827);
+}
+
+.barcode-numeric {
+  font-family: monospace;
+  direction: ltr;
+}
