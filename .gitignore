@@ -7,3 +7,4 @@ build
 *.pdf
 *.xlsx
 generated
+.vscode/settings.json

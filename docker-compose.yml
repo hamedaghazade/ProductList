@@ -7,10 +7,13 @@ services:
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_secret_2026}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-productlist}
-    ports:
-      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-productlist}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
@@ -23,13 +26,15 @@ services:
     container_name: productlist_backend
     restart: always
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_secret_2026}@postgres:5432/${POSTGRES_DB:-productlist}?schema=public
-      BOT_TOKEN: ${BOT_TOKEN}
-      TELEGRAM_WEBAPP_URL: ${TELEGRAM_WEBAPP_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-productlist}?schema=public
+      BOT_TOKEN: ${BOT_TOKEN:?BOT_TOKEN is required}
+      TELEGRAM_WEBAPP_URL: ${TELEGRAM_WEBAPP_URL:?TELEGRAM_WEBAPP_URL is required}
+      ALLOW_DEV_AUTH_BYPASS: "false"
       PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
       PUPPETEER_EXECUTABLE_PATH: "/usr/bin/chromium-browser"
     ports:

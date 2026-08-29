@@ -1,7 +1,12 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { CreateProductDTO, UpdateProductDTO, ProductQueryParams, PaginatedResult, IProduct } from '@shared/types/product';
+import { prisma } from '../db/prisma';
 
-const prisma = new PrismaClient();
+const ALLOWED_SORT_FIELDS = ['name', 'price', 'quantityPerPackage', 'createdAt'] as const;
+type SortField = (typeof ALLOWED_SORT_FIELDS)[number];
+
+const isSortField = (value: unknown): value is SortField =>
+  typeof value === 'string' && ALLOWED_SORT_FIELDS.includes(value as SortField);
 
 export class ProductService {
   public async findAll(telegramUserId: string, query: ProductQueryParams): Promise<PaginatedResult<IProduct>> {
@@ -18,12 +23,8 @@ export class ProductService {
       ];
     }
 
-    const orderBy: any = {};
-    if (query.sortBy) {
-      orderBy[query.sortBy] = query.sortOrder === 'desc' ? 'desc' : 'asc';
-    } else {
-      orderBy.createdAt = 'desc';
-    }
+    const sortBy = isSortField(query.sortBy) ? query.sortBy : 'createdAt';
+    const orderBy = { [sortBy]: query.sortOrder === 'desc' ? 'desc' : 'asc' } as const;
 
     const [total, records] = await Promise.all([
       prisma.product.count({ where: whereClause }),
@@ -86,7 +87,7 @@ export class ProductService {
       data: {
         name: data.name,
         quantityPerPackage: data.quantityPerPackage,
-        price: data.price,
+        price: new Prisma.Decimal(data.price),
         barcode: data.barcode,
         barcodeType: data.barcodeType as any,
         telegramUserId,
@@ -104,11 +105,11 @@ export class ProductService {
     const updated = await prisma.product.update({
       where: { id, telegramUserId },
       data: {
-        ...(data.name && { name: data.name }),
+        ...(data.name !== undefined && { name: data.name }),
         ...(data.quantityPerPackage !== undefined && { quantityPerPackage: data.quantityPerPackage }),
-        ...(data.price !== undefined && { price: data.price }),
-        ...(data.barcode && { barcode: data.barcode }),
-        ...(data.barcodeType && { barcodeType: data.barcodeType as any }),
+        ...(data.price !== undefined && { price: new Prisma.Decimal(data.price) }),
+        ...(data.barcode !== undefined && { barcode: data.barcode }),
+        ...(data.barcodeType !== undefined && { barcodeType: data.barcodeType as any }),
       },
     });
 
