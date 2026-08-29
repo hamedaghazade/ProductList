@@ -10,7 +10,7 @@ const controller = new ExportController();
 router.use(authMiddleware as any);
 router.use(exportLimiter);
 
-router.get('/excel', asyncHandler(controller.exportExcel));
-router.get('/pdf', asyncHandler(controller.exportPdf));
+router.get('/excel', asyncHandler(controller.exportExcel as any));
+router.get('/pdf', asyncHandler(controller.exportPdf as any));
 
 export default router;

@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 
-type AsyncRouteHandler = (req: Request, res: Response, next: NextFunction) => unknown;
+type AsyncRouteHandler = (req: any, res: Response, next: NextFunction) => unknown;
 
 export const asyncHandler = (handler: AsyncRouteHandler) => {
   return (req: Request, res: Response, next: NextFunction) => {
