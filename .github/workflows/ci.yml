@@ -55,9 +55,11 @@ jobs:
       - name: Run Test Suites
         run: npm test
         env:
+          NODE_ENV: test
           DATABASE_URL: "postgresql://testuser:testpassword@localhost:5432/product_test_db?schema=public"
-          JWT_SECRET: "ci_jwt_secret_super_safe_key_12345"
           BOT_TOKEN: "123456789:AAFakeTokenForCiWorkflowRunOnlyTest"
+          TELEGRAM_WEBAPP_URL: "http://localhost:5173"
+          ALLOW_DEV_AUTH_BYPASS: "false"
 
   docker-build-check:
     name: Validate Docker Builds
@@ -74,12 +76,12 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./apps/web/Dockerfile
+          file: ./Dockerfile.web
           push: false
 
       - name: Build Backend Container Image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./apps/backend/Dockerfile
+          file: ./Dockerfile.backend
           push: false
