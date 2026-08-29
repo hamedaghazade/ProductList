@@ -33,7 +33,9 @@ export const productSchema = z.object({
     .positive('تعداد در بسته باید بزرگتر از صفر باشد.'),
   price: z
     .number({ required_error: 'قیمت الزامی است.' })
-    .nonnegative('قیمت نمی‌تواند عدد منفی باشد.'),
+    .finite('قیمت باید یک عدد معتبر باشد.')
+    .nonnegative('قیمت نمی‌تواند عدد منفی باشد.')
+    .multipleOf(0.01, 'قیمت باید حداکثر دو رقم اعشار داشته باشد.'),
   barcode: z
     .string({ required_error: 'کد بارکد الزامی است.' })
     .trim()
